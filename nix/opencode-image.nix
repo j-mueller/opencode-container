@@ -107,7 +107,7 @@ let
     tag = "latest";
     copyToRoot = imageRoot;
     config = {
-      Cmd = [ "/bin/opencode-container-entrypoint" ];
+      Cmd = [ "/bin/bash" ];
       Env = [
         "PATH=/bin"
         "HOME=/tmp/opencode-container-home"

@@ -10,7 +10,7 @@ There are two ways to run it.
 This runs the container with the current directory mounted as the home directory.
 
 ```bash
-nix run github:j-mueller/opencode-container/refs/tags/0.1.1
+nix run github:j-mueller/opencode-container/refs/tags/0.1.2
 ```
 
 ## Running the container with podman
@@ -19,7 +19,7 @@ Run the container in interactive mode.
 Make sure to mount the directory that you want the agent to work in.
 
 ```bash
-podman run -it ghcr.io/j-mueller/opencode-container:0.1.1
+podman run -it ghcr.io/j-mueller/opencode-container:0.1.2
 ```
 
 ## Running The Container With Host Ollama
