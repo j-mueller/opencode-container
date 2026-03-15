@@ -28,6 +28,7 @@ let
     bashInteractive
     coreutils
     curl
+    fd
     findutils
     gawk
     git
@@ -37,7 +38,9 @@ let
     gzip
     less
     nixPackage
+    openssh
     procps
+    ripgrep
     which
     xz
     cacert
