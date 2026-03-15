@@ -3,9 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+
+    n2c = {
+      url = "github:nlewo/nix2container";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, n2c }:
     let
       systems = [
         "x86_64-linux"
@@ -45,7 +50,7 @@
         lib.optionalAttrs pkgs.stdenv.isLinux (
           let
             dockerImage = import ./nix/opencode-image.nix {
-              inherit pkgs devShellPackages opencodeAi;
+              inherit pkgs n2c devShellPackages opencodeAi;
             };
             runDockerImage = import ./nix/run-opencode.nix {
               inherit pkgs dockerImage;
@@ -68,10 +73,10 @@
         in
         lib.optionalAttrs pkgs.stdenv.isLinux (
           let
-            dockerImage = import ./nix/docker-image.nix {
-              inherit pkgs devShellPackages opencodeAi;
+            dockerImage = import ./nix/opencode-image.nix {
+              inherit pkgs n2c devShellPackages opencodeAi;
             };
-            runDockerImagePkg = import ./nix/run-run-opencode.nix {
+            runDockerImagePkg = import ./nix/run-opencode.nix {
               inherit pkgs dockerImage;
             };
           in

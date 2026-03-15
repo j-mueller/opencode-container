@@ -1,7 +1,7 @@
 { pkgs, dockerImage }:
 pkgs.writeShellApplication {
   name = "run-opencode-container";
-  runtimeInputs = [ pkgs.podman ];
+  runtimeInputs = [ pkgs.gnutar pkgs.podman ];
   text = ''
     set -euo pipefail
 
@@ -16,7 +16,17 @@ pkgs.writeShellApplication {
     xdg_cache_dir="/tmp/opencode-container-cache"
     ollama_host="''${OLLAMA_HOST:-http://host.containers.internal:11434}"
 
-    podman load --input "${dockerImage}" >/dev/null
+    podman image rm "$image_ref" >/dev/null 2>&1 || true
+    tar --create --numeric-owner --owner=0 --group=0 \
+      -C "${dockerImage.rootfs}" . \
+      | podman import \
+          --change 'CMD ["/bin/bash"]' \
+          --change 'ENV PATH=/bin' \
+          --change 'ENV HOME=/tmp/opencode-container-home' \
+          --change 'ENV XDG_CONFIG_HOME=/tmp/opencode-container-config' \
+          --change 'ENV XDG_CACHE_HOME=/tmp/opencode-container-cache' \
+          --change 'ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt' \
+          - "$image_ref" >/dev/null
 
     mkdir -p "$host_opencode_config_dir" "$host_opencode_cache_dir"
 

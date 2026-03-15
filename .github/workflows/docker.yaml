@@ -1,0 +1,72 @@
+name: OCI container
+permissions:
+  packages: write
+
+concurrency: 
+  group: ${{ github.ref }}-docker
+  cancel-in-progress: true
+
+env:
+  REGISTRY_USER: ${{ github.actor }}
+  REGISTRY_PASSWORD: ${{ github.token }}
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+on:
+  push:
+    tags: [ "*.*.*" ]
+  pull_request:
+
+jobs:
+  docker:
+    strategy:
+      matrix:
+        image: [dockerImage]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Log in to ghcr.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine image tag for git tag
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          IMAGE_TAG=$(git rev-parse --abbrev-ref "${{ github.ref }}")
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Determine image tag for PR
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          IMAGE_TAG=pr-${{ github.event.pull_request.number }}
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Prepare nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            substituters        = https://hydra.iohk.io https://iohk.cachix.org https://cache.nixos.org/ https://cache.ml42.de
+            trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= cache.ml42.de:RKmSRP9TOc87nh9FZCM/b/pMIE3kBLEeIe71ReCBwRM=
+            allow-import-from-derivation = true
+      # https://github.com/marketplace/actions/cache-nix-store
+
+      - name: Build images using nix
+        run: |
+          nix run --accept-flake-config .#${{ matrix.image }}.copyTo  -- oci-archive:oci.tar
+          IMAGE_HASH=$(podman load --quiet -i oci.tar | sed 's/.*sha256://')
+          echo "IMAGE_HASH=$IMAGE_HASH" >> $GITHUB_ENV
+
+      - name: Name and tag image
+        run: |
+          IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{ matrix.image }}:$IMAGE_TAG
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          podman tag $IMAGE_HASH $IMAGE_NAME
+
+      - name: Push new image
+        run: podman push $IMAGE_NAME

@@ -1,0 +1,39 @@
+diff --git a/default.nix b/default.nix
+index 2a64d1a..61b6d2e 100644
+--- a/default.nix
++++ b/default.nix
+@@ -49,18 +49,30 @@ let
+-      cat ${patch}
++      patch_file="$(mktemp)"
++      cp ${patch} "$patch_file"
++      sed -i 's#go.podman.io/image/v5#github.com/containers/image/v5#g' "$patch_file"
++      cat "$patch_file"
+       mkdir -p vendor/github.com/nlewo/nix2container/
+       cp -r ${nix2container-bin.src}/* vendor/github.com/nlewo/nix2container/
++      chmod -R u+w vendor/github.com/nlewo/nix2container/nix
++      sed -i 's#go.podman.io/image/v5#github.com/containers/image/v5#g' \
++        vendor/github.com/nlewo/nix2container/nix/image.go
+-      cd vendor/go.podman.io/image/v5
++      cd vendor/github.com/containers/image/v5
+       mkdir nix/
+       touch nix/transport.go
+-      cat ${patch} | patch -p2
++      cat "$patch_file" | patch -p2
+       cd -
+ 
+       # Go checks packages in the vendor directory are declared in the modules.txt file.
++      awk '
++        $0 ~ /^# github.com\/containers\/image\/v5 / { print; in_mod=1; next }
++        in_mod && /^## / { print; print "github.com/containers/image/v5/nix"; in_mod=0; next }
++        { print }
++      ' vendor/modules.txt > vendor/modules.txt.tmp
++      mv vendor/modules.txt.tmp vendor/modules.txt
++
+       echo '# github.com/nlewo/nix2container v1.0.0' >> vendor/modules.txt
+       echo '## explicit; go 1.13' >> vendor/modules.txt
+       echo github.com/nlewo/nix2container/nix >> vendor/modules.txt
+       echo github.com/nlewo/nix2container/types >> vendor/modules.txt
+-      echo go.podman.io/image/v5/nix >> vendor/modules.txt
+       # All packages declared in the modules.txt file must also be required by the go.mod file.
+       echo 'require (' >> go.mod
+       echo '  github.com/nlewo/nix2container v1.0.0' >> go.mod
