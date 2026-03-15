@@ -83,6 +83,13 @@ let
       $out/tmp/opencode-container-config \
       $out/tmp/opencode-container-cache
 
+    mkdir -p $out/etc/nix
+    cat > $out/etc/nix/nix.conf <<'EOF'
+    experimental-features = nix-command flakes
+    build-users-group =
+    sandbox = false
+    EOF
+
     mkdir -p $out/lib64 $out/lib/${libcDir}
     ln -sfn ${pkgs.glibc}/lib/${loaderName} $out/lib64/${loaderName}
     ln -sfn ${pkgs.glibc}/lib/libc.so.6 $out/lib/libc.so.6
