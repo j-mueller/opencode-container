@@ -1,4 +1,4 @@
-{ pkgs, n2c, devShellPackages, opencodeAi }:
+{ pkgs, n2c, devShellPackages, opencodeAi, nixPackage }:
 let
   n2cSrc = pkgs.applyPatches {
     name = "nix2container-src";
@@ -41,7 +41,7 @@ let
     gnutar
     gzip
     less
-    nix
+    nixPackage
     procps
     which
     xz
