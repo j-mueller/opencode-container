@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     n2c = {
       url = "github:nlewo/nix2container";
@@ -10,7 +11,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, n2c }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, n2c }:
     let
       systems = [
         "x86_64-linux"
@@ -43,6 +44,7 @@
         let
           lib = pkgs.lib;
           devShellPackages = mkDevShellPackages pkgs;
+          unstablePkgs = import nixpkgs-unstable { inherit system; };
           opencodeAi = import ./nix/opencode-ai.nix {
             inherit pkgs system;
           };
@@ -51,6 +53,7 @@
           let
             dockerImage = import ./nix/opencode-image.nix {
               inherit pkgs n2c devShellPackages opencodeAi;
+              nixPackage = unstablePkgs.nixVersions.nix_2_33;
             };
             runDockerImage = import ./nix/run-opencode.nix {
               inherit pkgs dockerImage;
@@ -67,6 +70,7 @@
         let
           lib = pkgs.lib;
           devShellPackages = mkDevShellPackages pkgs;
+          unstablePkgs = import nixpkgs-unstable { inherit system; };
           opencodeAi = import ./nix/opencode-ai.nix {
             inherit pkgs system;
           };
@@ -75,6 +79,7 @@
           let
             dockerImage = import ./nix/opencode-image.nix {
               inherit pkgs n2c devShellPackages opencodeAi;
+              nixPackage = unstablePkgs.nixVersions.nix_2_33;
             };
             runDockerImagePkg = import ./nix/run-opencode.nix {
               inherit pkgs dockerImage;
