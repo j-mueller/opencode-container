@@ -1,5 +1,10 @@
 { pkgs, n2c, devShellPackages, opencodeAi, nixPackage }:
 let
+  mkOpencodeConfig = import ./opencode-config.nix;
+  defaultOpencodeConfigJson = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "http://127.0.0.1:11434/v1";
+  });
+
   n2cCompatPkgs = pkgs // {
     go = pkgs.go_1_24;
     buildGoModule = pkgs.buildGo124Module;
@@ -154,6 +159,11 @@ let
       $out/tmp/opencode-container-home \
       $out/tmp/opencode-container-config \
       $out/tmp/opencode-container-cache
+
+    mkdir -p $out/tmp/opencode-container-config/opencode
+    cat > $out/tmp/opencode-container-config/opencode/opencode.json <<'EOF'
+    ${defaultOpencodeConfigJson}
+    EOF
 
     mkdir -p $out/etc/nix
     cat > $out/etc/nix/nix.conf <<'EOF'

@@ -1,7 +1,17 @@
 { pkgs, dockerImage }:
+let
+  mkOpencodeConfig = import ./opencode-config.nix;
+  currentDefaultConfigJson = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "''${ollama_host}/v1";
+  });
+  legacyDefaultConfigQwenExpandedJson = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "http://host.containers.internal:11434/v1";
+    model = "ollama/qwen3.5:9b";
+  });
+in
 pkgs.writeShellApplication {
   name = "run-opencode-container";
-  runtimeInputs = [ pkgs.gnutar pkgs.podman ];
+  runtimeInputs = [ pkgs.gnutar pkgs.jq pkgs.podman ];
   text = ''
     set -euo pipefail
 
@@ -14,7 +24,17 @@ pkgs.writeShellApplication {
     home_dir="/tmp/opencode-container-home"
     xdg_config_dir="/tmp/opencode-container-config"
     xdg_cache_dir="/tmp/opencode-container-cache"
-    ollama_host="''${OLLAMA_HOST:-http://host.containers.internal:11434}"
+    ollama_host="''${OLLAMA_HOST:-http://127.0.0.1:11434}"
+
+    normalized_json() {
+      jq -S . "$1"
+    }
+
+    write_default_config() {
+      cat > "$1" <<EOF
+    ${currentDefaultConfigJson}
+    EOF
+    }
 
     podman image rm "$image_ref" >/dev/null 2>&1 || true
     tar --create --numeric-owner --owner=0 --group=0 \
@@ -30,6 +50,26 @@ pkgs.writeShellApplication {
 
     mkdir -p "$host_opencode_config_dir" "$host_opencode_cache_dir"
 
+    config_file="$host_opencode_config_dir/opencode.json"
+    current_default_config="$(mktemp)"
+    legacy_default_config_qwen_expanded="$(mktemp)"
+    trap 'rm -f "$current_default_config" "$legacy_default_config_qwen_expanded"' EXIT
+
+    write_default_config "$current_default_config"
+
+    cat > "$legacy_default_config_qwen_expanded" <<'EOF'
+    ${legacyDefaultConfigQwenExpandedJson}
+    EOF
+
+    if [ ! -f "$config_file" ]; then
+      write_default_config "$config_file"
+    else
+      config_json="$(normalized_json "$config_file")"
+      if [ "$config_json" = "$(normalized_json "$legacy_default_config_qwen_expanded")" ]; then
+        write_default_config "$config_file"
+      fi
+    fi
+
     tty_flags=()
     if [ -t 0 ] && [ -t 1 ]; then
       tty_flags+=(--interactive --tty)
@@ -37,6 +77,7 @@ pkgs.writeShellApplication {
 
     exec podman run --rm \
       "''${tty_flags[@]}" \
+      --network host \
       --workdir /workspace \
       --volume "$workspace_dir:/workspace:Z" \
       --volume "$host_opencode_config_dir:$xdg_config_dir/opencode:Z" \
