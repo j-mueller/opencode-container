@@ -1,4 +1,14 @@
 { pkgs, dockerImage }:
+let
+  mkOpencodeConfig = import ./opencode-config.nix;
+  currentDefaultConfigJson = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "''${ollama_host}/v1";
+  });
+  legacyDefaultConfigQwenExpandedJson = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "http://host.containers.internal:11434/v1";
+    model = "ollama/qwen3.5:9b";
+  });
+in
 pkgs.writeShellApplication {
   name = "run-opencode-container";
   runtimeInputs = [ pkgs.gnutar pkgs.jq pkgs.podman ];
@@ -22,36 +32,7 @@ pkgs.writeShellApplication {
 
     write_default_config() {
       cat > "$1" <<EOF
-    {
-      "\$schema": "https://opencode.ai/config.json",
-      "provider": {
-        "ollama": {
-          "npm": "@ai-sdk/openai-compatible",
-          "name": "Ollama (local)",
-          "options": {
-            "baseURL": "''${ollama_host}/v1"
-          },
-          "models": {
-            "qwen3.5:9b": {
-              "name": "Qwen 3.5 9B"
-            },
-            "qwen3.5:27b": {
-              "name": "Qwen 3.5 27B"
-            },
-            "qwen3.5:35b": {
-              "name": "Qwen 3.5 35B"
-            },
-            "qwen3.5:latest": {
-              "name": "Qwen 3.5 Latest"
-            },
-            "qwen3-coder-next:latest": {
-              "name": "Qwen 3 Coder Next Latest"
-            }
-          }
-        }
-      },
-      "model": "ollama/qwen3.5:27b"
-    }
+    ${currentDefaultConfigJson}
     EOF
     }
 
@@ -71,93 +52,20 @@ pkgs.writeShellApplication {
 
     config_file="$host_opencode_config_dir/opencode.json"
     current_default_config="$(mktemp)"
-    legacy_default_config_llama32="$(mktemp)"
-    legacy_default_config_qwen9b="$(mktemp)"
     legacy_default_config_qwen_expanded="$(mktemp)"
-    trap 'rm -f "$current_default_config" "$legacy_default_config_llama32" "$legacy_default_config_qwen9b" "$legacy_default_config_qwen_expanded"' EXIT
+    trap 'rm -f "$current_default_config" "$legacy_default_config_qwen_expanded"' EXIT
 
     write_default_config "$current_default_config"
 
-    cat > "$legacy_default_config_llama32" <<'EOF'
-    {
-      "$schema": "https://opencode.ai/config.json",
-      "provider": {
-        "ollama": {
-          "npm": "@ai-sdk/openai-compatible",
-          "name": "Ollama (local)",
-          "options": {
-            "baseURL": "http://host.containers.internal:11434/v1"
-          },
-          "models": {
-            "llama3.2": {
-              "name": "Llama 3.2"
-            }
-          }
-        }
-      },
-      "model": "ollama/llama3.2"
-    }
-    EOF
-
-    cat > "$legacy_default_config_qwen9b" <<'EOF'
-    {
-      "$schema": "https://opencode.ai/config.json",
-      "provider": {
-        "ollama": {
-          "npm": "@ai-sdk/openai-compatible",
-          "name": "Ollama (local)",
-          "options": {
-            "baseURL": "http://host.containers.internal:11434/v1"
-          },
-          "models": {
-            "qwen3.5:9b": {
-              "name": "Qwen 3.5 9B"
-            }
-          }
-        }
-      },
-      "model": "ollama/qwen3.5:9b"
-    }
-    EOF
-
     cat > "$legacy_default_config_qwen_expanded" <<'EOF'
-    {
-      "$schema": "https://opencode.ai/config.json",
-      "provider": {
-        "ollama": {
-          "npm": "@ai-sdk/openai-compatible",
-          "name": "Ollama (local)",
-          "options": {
-            "baseURL": "http://host.containers.internal:11434/v1"
-          },
-          "models": {
-            "qwen3.5:9b": {
-              "name": "Qwen 3.5 9B"
-            },
-            "qwen3.5:27b": {
-              "name": "Qwen 3.5 27B"
-            },
-            "qwen3.5:35b": {
-              "name": "Qwen 3.5 35B"
-            },
-            "qwen3.5:latest": {
-              "name": "Qwen 3.5 Latest"
-            },
-            "qwen3-coder-next:latest": {
-              "name": "Qwen 3 Coder Next Latest"
-            }
-          }
-        }
-      },
-      "model": "ollama/qwen3.5:9b"
-    }
+    ${legacyDefaultConfigQwenExpandedJson}
     EOF
 
     if [ ! -f "$config_file" ]; then
       write_default_config "$config_file"
     else
       config_json="$(normalized_json "$config_file")"
-      if [ "$config_json" = "$(normalized_json "$legacy_default_config_llama32")" ] || [ "$config_json" = "$(normalized_json "$legacy_default_config_qwen9b")" ] || [ "$config_json" = "$(normalized_json "$legacy_default_config_qwen_expanded")" ]; then
+      if [ "$config_json" = "$(normalized_json "$legacy_default_config_qwen_expanded")" ]; then
         write_default_config "$config_file"
       fi
     fi

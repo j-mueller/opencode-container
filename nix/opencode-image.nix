@@ -1,5 +1,10 @@
 { pkgs, n2c, devShellPackages, opencodeAi, nixPackage }:
 let
+  mkOpencodeConfig = import ./opencode-config.nix;
+  defaultOpencodeConfigJson = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "http://127.0.0.1:11434/v1";
+  });
+
   n2cCompatPkgs = pkgs // {
     go = pkgs.go_1_24;
     buildGoModule = pkgs.buildGo124Module;
@@ -157,36 +162,7 @@ let
 
     mkdir -p $out/tmp/opencode-container-config/opencode
     cat > $out/tmp/opencode-container-config/opencode/opencode.json <<'EOF'
-    {
-      "$schema": "https://opencode.ai/config.json",
-      "provider": {
-        "ollama": {
-          "npm": "@ai-sdk/openai-compatible",
-          "name": "Ollama (local)",
-          "options": {
-            "baseURL": "http://127.0.0.1:11434/v1"
-          },
-          "models": {
-            "qwen3.5:9b": {
-              "name": "Qwen 3.5 9B"
-            },
-            "qwen3.5:27b": {
-              "name": "Qwen 3.5 27B"
-            },
-            "qwen3.5:35b": {
-              "name": "Qwen 3.5 35B"
-            },
-            "qwen3.5:latest": {
-              "name": "Qwen 3.5 Latest"
-            },
-            "qwen3-coder-next:latest": {
-              "name": "Qwen 3 Coder Next Latest"
-            }
-          }
-        }
-      },
-      "model": "ollama/qwen3.5:27b"
-    }
+    ${defaultOpencodeConfigJson}
     EOF
 
     mkdir -p $out/etc/nix
