@@ -1,8 +1,8 @@
 { pkgs, dockerImage }:
 let
   mkOpencodeConfig = import ./opencode-config.nix;
-  currentDefaultConfigJson = builtins.toJSON (mkOpencodeConfig {
-    baseURL = "''${ollama_host}/v1";
+  currentDefaultConfigJsonTemplate = builtins.toJSON (mkOpencodeConfig {
+    baseURL = "__OLLAMA_HOST__/v1";
   });
   legacyDefaultConfigQwenExpandedJson = builtins.toJSON (mkOpencodeConfig {
     baseURL = "http://host.containers.internal:11434/v1";
@@ -31,8 +31,10 @@ pkgs.writeShellApplication {
     }
 
     write_default_config() {
-      cat > "$1" <<EOF
-    ${currentDefaultConfigJson}
+      jq --arg base_url "$ollama_host/v1" '
+        .provider.ollama.options.baseURL = $base_url
+      ' <<'EOF' > "$1"
+    ${currentDefaultConfigJsonTemplate}
     EOF
     }
 
