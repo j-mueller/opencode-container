@@ -11,6 +11,20 @@
     };
   };
 
+  nixConfig = {
+    extra-substituters = [
+      "https://cache.iog.io"
+      "https://cache.zw3rk.com"
+      "https://cache.ml42.de"
+    ];
+    extra-trusted-public-keys = [
+      "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
+      "loony-tools:pr9m4BkM/5/eSTZlkQyRt57Jz7OMBxNSUiMC4FkcNfk="
+      "cache.ml42.de:RKmSRP9TOc87nh9FZCM/b/pMIE3kBLEeIe71ReCBwRM="
+    ];
+    allow-import-from-derivation = true;
+  };
+
   outputs = { self, nixpkgs, nixpkgs-unstable, n2c }:
     let
       systems = [
@@ -20,9 +34,15 @@
         "aarch64-darwin"
       ];
 
+      importPkgs = nixpkgsInput: system:
+        import nixpkgsInput {
+          inherit system;
+          config.allow-import-from-derivation = true;
+        };
+
       forAllSystems = f:
         nixpkgs.lib.genAttrs systems (system:
-          f system (import nixpkgs { inherit system; }));
+          f system (importPkgs nixpkgs system));
 
       mkDevShellPackages = pkgs:
         with pkgs; [
@@ -44,7 +64,7 @@
         let
           lib = pkgs.lib;
           devShellPackages = mkDevShellPackages pkgs;
-          unstablePkgs = import nixpkgs-unstable { inherit system; };
+          unstablePkgs = importPkgs nixpkgs-unstable system;
           opencodeAi = import ./nix/opencode-ai.nix {
             inherit pkgs system;
           };
@@ -70,7 +90,7 @@
         let
           lib = pkgs.lib;
           devShellPackages = mkDevShellPackages pkgs;
-          unstablePkgs = import nixpkgs-unstable { inherit system; };
+          unstablePkgs = importPkgs nixpkgs-unstable system;
           opencodeAi = import ./nix/opencode-ai.nix {
             inherit pkgs system;
           };
