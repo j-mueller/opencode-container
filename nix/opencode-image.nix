@@ -1,17 +1,12 @@
 { pkgs, n2c, devShellPackages, opencodeAi, nixPackage }:
 let
-  n2cSrc = pkgs.applyPatches {
-    name = "nix2container-src";
-    src = n2c.outPath;
-    patches = [ ./patches/nix2container-skopeo-containers-image.patch ];
-  };
-
   n2cCompatPkgs = pkgs // {
     go = pkgs.go_1_24;
     buildGoModule = pkgs.buildGo124Module;
   };
 
-  n2cPatched = import n2cSrc { pkgs = n2cCompatPkgs; };
+  # Import the flake input source path directly to avoid import-from-derivation.
+  n2cLib = import n2c.outPath { pkgs = n2cCompatPkgs; };
 
   loaderName =
     if pkgs.stdenv.hostPlatform.isx86_64 then
@@ -86,6 +81,7 @@ let
     mkdir -p $out/etc/nix
     cat > $out/etc/nix/nix.conf <<'EOF'
     experimental-features = nix-command flakes
+    allow-import-from-derivation = true
     build-users-group =
     sandbox = false
     EOF
@@ -102,7 +98,7 @@ let
     ln -sfn ../libm.so.6 $out/lib/${libcDir}/libm.so.6
   '';
 
-  image = n2cPatched.nix2container.buildImage {
+  image = n2cLib.nix2container.buildImage {
     name = "opencode-container";
     tag = "latest";
     copyToRoot = imageRoot;
