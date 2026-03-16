@@ -68,6 +68,9 @@ jobs:
           IMAGE_NAME=ghcr.io/${IMAGE_REPO}:$IMAGE_TAG
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
           podman tag $IMAGE_HASH $IMAGE_NAME
+          if [ "${{ github.event_name }}" == "push" ]; then
+            podman tag $IMAGE_HASH ghcr.io/${IMAGE_REPO}:latest
+          fi
 
       - name: Push new image
         run: podman push $IMAGE_NAME
