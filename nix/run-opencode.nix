@@ -21,7 +21,7 @@ pkgs.writeShellApplication {
     host_cache_root="''${XDG_CACHE_HOME:-$HOME/.cache}"
     host_opencode_config_dir="$host_config_root/opencode"
     host_opencode_cache_dir="$host_cache_root/opencode"
-    home_dir="/tmp/opencode-container-home"
+    home_dir="/root"
     xdg_config_dir="/tmp/opencode-container-config"
     xdg_cache_dir="/tmp/opencode-container-cache"
     ollama_host="''${OLLAMA_HOST:-http://127.0.0.1:11434}"
@@ -43,8 +43,9 @@ pkgs.writeShellApplication {
       -C "${dockerImage.rootfs}" . \
       | podman import \
           --change 'CMD ["/bin/bash"]' \
+          --change 'ENTRYPOINT ["/bin/opencode-container-init"]' \
           --change 'ENV PATH=/bin' \
-          --change 'ENV HOME=/tmp/opencode-container-home' \
+          --change 'ENV HOME=/root' \
           --change 'ENV XDG_CONFIG_HOME=/tmp/opencode-container-config' \
           --change 'ENV XDG_CACHE_HOME=/tmp/opencode-container-cache' \
           --change 'ENV SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt' \
