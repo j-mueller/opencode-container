@@ -173,6 +173,10 @@ let
     sandbox = false
     EOF
 
+    cat > $out/etc/passwd <<'EOF'
+    root:x:0:0:root:/root:/bin/bash
+    EOF
+
     mkdir -p $out/lib64 $out/lib/${libcDir}
     ln -sfn ${pkgs.glibc}/lib/${loaderName} $out/lib64/${loaderName}
     ln -sfn ${pkgs.glibc}/lib/libc.so.6 $out/lib/libc.so.6
