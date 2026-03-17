@@ -67,6 +67,25 @@ let
     excludeShellChecks = [ "SC2068" ];
   };
 
+  opencodeContainerInit = pkgs.writeShellApplication {
+    name = "opencode-container-init";
+    text = ''
+      set -euo pipefail
+
+      mkdir -p /tmp/opencode-container-home/.ssh
+      chmod 700 /tmp/opencode-container-home
+      chmod 700 /tmp/opencode-container-home/.ssh
+      touch /tmp/opencode-container-home/.ssh/known_hosts
+      chmod 600 /tmp/opencode-container-home/.ssh/known_hosts
+
+      if [ "$#" -eq 0 ]; then
+        set -- /bin/bash
+      fi
+
+      exec "$@"
+    '';
+  };
+
   copyToDockerDaemon = image: writeSkopeoApplication "copy-to-docker-daemon" ''
     echo "Copy to Docker daemon image ${image.imageName}:${image.imageTag}"
     skopeo --insecure-policy copy nix:${image} docker-daemon:${image.imageName}:${image.imageTag} "$@"
@@ -125,6 +144,7 @@ let
     cacert
     glibc
     nodejs
+    opencodeContainerInit
   ];
 
   imageEnv = pkgs.buildEnv {
@@ -173,6 +193,12 @@ let
     sandbox = false
     EOF
 
+    cat > $out/etc/passwd <<'EOF'
+    root:x:0:0:root:/root:/bin/bash
+    EOF
+
+    ln -sfn /tmp/opencode-container-home $out/root
+
     mkdir -p $out/lib64 $out/lib/${libcDir}
     ln -sfn ${pkgs.glibc}/lib/${loaderName} $out/lib64/${loaderName}
     ln -sfn ${pkgs.glibc}/lib/libc.so.6 $out/lib/libc.so.6
@@ -190,10 +216,11 @@ let
     tag = "latest";
     copyToRoot = imageRoot;
     config = {
+      Entrypoint = [ "/bin/opencode-container-init" ];
       Cmd = [ "/bin/bash" ];
       Env = [
         "PATH=/bin"
-        "HOME=/tmp/opencode-container-home"
+        "HOME=/root"
         "XDG_CONFIG_HOME=/tmp/opencode-container-config"
         "XDG_CACHE_HOME=/tmp/opencode-container-cache"
         "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
