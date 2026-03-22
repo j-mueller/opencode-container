@@ -13,6 +13,7 @@ env:
 
 on:
   push:
+    branches: [ main ]
     tags: [ "*.*.*" ]
   pull_request:
 
@@ -33,18 +34,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Determine image tag for git tag
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          IMAGE_TAG=$(git rev-parse --abbrev-ref "${{ github.ref }}")
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
-
-      - name: Determine image tag for PR
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          IMAGE_TAG=pr-${{ github.event.pull_request.number }}
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+        with:
+          fetch-depth: 0
 
       - name: Prepare nix
         uses: cachix/install-nix-action@v27
@@ -65,12 +56,31 @@ jobs:
       - name: Name and tag image
         run: |
           IMAGE_REPO=$(printf '%s' '${{ github.repository_owner }}/opencode-container' | tr '[:upper:]' '[:lower:]')
-          IMAGE_NAME=ghcr.io/${IMAGE_REPO}:$IMAGE_TAG
-          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
-          podman tag $IMAGE_HASH $IMAGE_NAME
-          if [ "${{ github.event_name }}" == "push" ]; then
-            podman tag $IMAGE_HASH ghcr.io/${IMAGE_REPO}:latest
+          IMAGE_BASE=ghcr.io/${IMAGE_REPO}
+          IMAGE_TAG=$(git rev-parse --short=7 HEAD)
+          IMAGE_NAME=${IMAGE_BASE}:${IMAGE_TAG}
+          IMAGE_TAGS="${IMAGE_NAME}"
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            IMAGE_TAGS="${IMAGE_TAGS} ${IMAGE_BASE}:latest"
           fi
 
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            git fetch --no-tags origin main
+            if git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+              IMAGE_TAGS="${IMAGE_TAGS} ${IMAGE_BASE}:${GITHUB_REF_NAME}"
+            fi
+          fi
+
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "IMAGE_TAGS=${IMAGE_TAGS}" >> $GITHUB_ENV
+
+          for tag in $IMAGE_TAGS; do
+            podman tag $IMAGE_HASH "$tag"
+          done
+
       - name: Push new image
-        run: podman push $IMAGE_NAME
+        run: |
+          for tag in $IMAGE_TAGS; do
+            podman push "$tag"
+          done
